@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>Transaksi Kasir - Kasir Mini</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    .cart-box { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .total-box { background: #e9ecef; padding: 15px; border-radius: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+<div class="container my-4">
+  <h4 class="mb-4">🧾 Transaksi Penjualan</h4>
+
+  <!-- PILIH PRODUK -->
+  <div class="cart-box mb-4">
+    <div class="row g-2 align-items-center">
+      <div class="col-md-6">
+        <select id="selectProduct" class="form-select"></select>
+      </div>
+      <div class="col-md-2">
+        <input id="qty" type="number" min="1" value="1" class="form-control" placeholder="Qty">
+      </div>
+      <div class="col-md-2">
+        <button id="addBtn" class="btn btn-primary w-100">Tambah</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABEL KERANJANG -->
+  <table class="table table-bordered table-striped">
+    <thead class="table-light"><tr><th>#</th><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th><th>Aksi</th></tr></thead>
+    <tbody id="cartBody"></tbody>
+  </table>
+
+  <!-- TOTAL -->
+  <div class="total-box d-flex justify-content-between align-items-center">
+    <span id="totalHarga">Total: Rp 0</span>
+    <button id="checkoutBtn" class="btn btn-success">💳 Checkout</button>
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script>
+let products = [];
+let cart = [];
+
+async function loadProducts() {
+  try {
+    products = await apiFetch('/products');
+    const select = document.getElementById('selectProduct');
+    select.innerHTML = products.map(p => 
+      `<option value="${p.id_product}">${p.nama_product} - Rp${Number(p.harga_jual).toLocaleString()}</option>`
+    ).join('');
+  } catch(e) { alert('Gagal memuat produk'); }
+}
+
+function renderCart() {
+  const tbody = document.getElementById('cartBody');
+  tbody.innerHTML = '';
+  let total = 0;
+  cart.forEach((item, i) => {
+    const subtotal = item.harga_satuan * item.qty;
+    total += subtotal;
+    tbody.innerHTML += `
+      <tr>
+        <td>${i+1}</td>
+        <td>${item.nama_product}</td>
+        <td>${item.qty}</td>
+        <td>Rp ${item.harga_satuan.toLocaleString()}</td>
+        <td>Rp ${subtotal.toLocaleString()}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="removeItem(${i})">Hapus</button></td>
+      </tr>`;
+  });
+  document.getElementById('totalHarga').innerText = 'Total: Rp ' + total.toLocaleString();
+}
+
+function removeItem(index) {
+  cart.splice(index, 1);
+  renderCart();
+}
+
+document.getElementById('addBtn').onclick = () => {
+  const id = parseInt(document.getElementById('selectProduct').value);
+  const qty = parseInt(document.getElementById('qty').value);
+  if (!id || qty <= 0) return alert('Pilih produk dan jumlah dengan benar!');
+  const p = products.find(x => x.id_product === id);
+  cart.push({ id_product: p.id_product, nama_product: p.nama_product, qty, harga_satuan: Number(p.harga_jual) });
+  renderCart();
+};
+
+document.getElementById('checkoutBtn').onclick = async () => {
+  if (cart.length === 0) return alert('Keranjang masih kosong!');
+  const bayar = prompt("Masukkan jumlah pembayaran:", "0");
+  if (!bayar) return;
+
+  const res = await apiFetch('/transactions', {
+    method:'POST',
+    body: JSON.stringify({ id_user: 1, items: cart, dibayar: parseFloat(bayar) })
+  });
+  alert('✅ Transaksi berhasil disimpan!');
+  cart = [];
+  renderCart();
+};
+
+loadProducts();
+</script>
+</body>
+</html>
